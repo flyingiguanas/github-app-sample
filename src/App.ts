@@ -1,46 +1,66 @@
-import * as Webhooks from "@octokit/webhooks";
-import {Application, Context} from "probot";
-import {getAppConfig} from "./AppConfig";
-import {IGithubConfig, LabelMatcher} from "./LabelMatcher";
-import {CheckStatus, StatusChecksManager} from "./StatusChecksManager";
+import {Probot} from "probot";
+import {IGithubConfig} from "./labelMatcher";
+import {CheckStatus, StatusChecksManager} from "./statusChecksManager";
 
-export class App {
+export default (app: Probot) => {
+    app.on(['installation.created', 'installation_repositories.added', 'installation.unsuspend', 'installation.new_permissions_accepted'], async (context) => {
+        context.log.info(`handling ${context.name} event`);
 
-    public static handle(context: Application): void {
-        context.on(["pull_request.opened", "pull_request.reopened", "pull_request.labeled", "pull_request.unlabeled"], App.handleEvent);
-    }
+        const repos = await context.octokit.apps.listReposAccessibleToInstallation({ installation_id: context.payload.installation.id });
+        repos.data.repositories.forEach(async (repo) => {
+            const repoContext = { repo: repo.name, owner: repo.owner.login };
 
-    private static handleEvent(context: Context<Webhooks.WebhookPayloadPullRequest>): Promise<void> {
-        context.log.info(`handling ${context.event} event`);
-        const app = new App();
-        return app.handleEvent(context);
-    }
+            const labels = await context.octokit.issues.listLabelsForRepo(repoContext);
+            const labelNames = labels.data.map(label => label.name);
 
-    public async handleEvent(context: Context<Webhooks.WebhookPayloadPullRequest>): Promise<void> {
-        const data: IGithubConfig = await context.config<IGithubConfig>("pr_labels.yml");
-        if (!data) {
-            return;
+            const prodLabel = {name: 'production', color: '0e8a16', ...repoContext };
+            if (!labelNames.includes('production')) {
+                await context.octokit.issues.createLabel(prodLabel);
+            } else {
+                await context.octokit.issues.updateLabel(prodLabel);
+            }
+
+            const nonProdLabel = {name: 'non-production', color: 'bfd4f2', ...repoContext };
+            if (!labelNames.includes('non-production')) {
+                await context.octokit.issues.createLabel(nonProdLabel);
+            } else {
+                await context.octokit.issues.updateLabel(nonProdLabel);
+            }
+        });
+    });
+
+    app.on(['pull_request.opened', 'pull_request.reopened', 'pull_request.ready_for_review'], async (context) => {
+        context.log.info(`handling ${context.name} event`);
+
+        const labels = context.payload.pull_request.labels.map(label => label.name);
+        if (!labels.includes('production') && !labels.includes('non-production')) {
+            const data: IGithubConfig | null = await context.config<IGithubConfig>('labels.yml');
+            const defaultLabel = data?.default || 'production';
+            await context.octokit.issues.addLabels(context.issue({labels: [defaultLabel]}));
         }
-        const matcher = new LabelMatcher(context.payload.pull_request.labels);
-        const targetStatus = matcher.matches(data) ? CheckStatus.SUCCESS : data.invalidStatus === "failed" ? CheckStatus.FAILED : CheckStatus.PENDING;
-        const statusChecksManager = new StatusChecksManager(context, getAppConfig().checkName);
+    });
+
+    app.on('pull_request', async (context) => {
+        context.log.info(`handling ${context.name} event`);
+
+        const labels = context.payload.pull_request.labels.map(label => label.name);
+
+        const valid = labels.includes('production') || labels.includes('non-production');
+
+        const targetStatus = valid ? CheckStatus.SUCCESS : CheckStatus.FAILED;
+
+        const statusChecksManager = new StatusChecksManager(context, 'pager_soc2_labels');
         const status = await statusChecksManager.getCheck();
         if (targetStatus === status) {
             return;
         }
         switch (targetStatus) {
-            case CheckStatus.PENDING:
-                await statusChecksManager.setPending();
-                break;
             case CheckStatus.FAILED:
                 await statusChecksManager.setFailed();
                 break;
             case CheckStatus.SUCCESS:
                 await statusChecksManager.setSuccess();
                 break;
-            default:
-                const errorMessage = `not able to handle ${targetStatus}`;
-                throw new Error(errorMessage);
         }
-    }
+    });
 }
