@@ -7,7 +7,7 @@ import { simpleGit } from 'simple-git';
 import { CommandError } from './Errors';
 
 export default class NpmAuditAdvisor {
-  constructor(private readonly context: Context<'push'>) {}
+  constructor(private readonly context: Context<'pull_request.synchronize'>) {}
 
   async run() {
     // Clone repository based on data from context.
@@ -80,7 +80,7 @@ export default class NpmAuditAdvisor {
   }
 
   private async checkoutRef() {
-    const ref = this.context.payload.ref;
+    const ref = this.context.payload.pull_request.head.ref;
     this.context.log.info({ ref }, 'Checking out ref');
 
     await this.runCmd(`git checkout ${ref}`);
