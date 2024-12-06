@@ -104,6 +104,7 @@ export default class NpmAuditAdvisor {
       (resolve, reject) => {
         childProcess.exec(cmd, (err, stdout, stderr) => {
           if (err) {
+            this.context.log.error({ err, stderr, stdout }, 'Process errored');
             reject(err);
           }
 
