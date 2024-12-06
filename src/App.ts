@@ -113,14 +113,10 @@ export default (app: Probot) => {
     }
   });
 
-  app.onAny((context) => {
-    app.log.info({ event: context.name, action: context.payload });
-  });
-
-  app.on('pull_request.synchronize', async (context) => {
+  app.on('pull_request.synchronize', (context) => {
     context.log.info(`handling ${context.name} event`);
 
     const advisor = new NpmAuditAdvisor(context);
-    await advisor.run();
+    void advisor.run();
   });
 };
