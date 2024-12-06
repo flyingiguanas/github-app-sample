@@ -37,7 +37,7 @@
     "start": "probot run ./lib/app.js",
     "build": "npm run clean && tsc -p .",
     "clean": "rm -rf lib",
-    "lint": "eslint . src/**/*",
+    "lint": "eslint .",
     "lint:fix": "npm run lint -s -- --fix"
   },
   "husky": {

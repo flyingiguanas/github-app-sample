@@ -1,3 +1,3 @@
 export interface IGithubConfig {
-    default: string;
+  default: string;
 }
