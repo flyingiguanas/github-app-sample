@@ -10,13 +10,20 @@ export default (app: Probot) => {
       'installation_repositories.added',
       'installation.unsuspend',
       'installation.new_permissions_accepted',
+      'pull_request.labeled',
     ],
     async (context) => {
       context.log.info(`handling ${context.name} event`);
 
+      const installationId = context.payload.installation?.id;
+      if (!installationId) {
+        context.log.warn('No installation.id found');
+        throw new Error('No installation.id found');
+      }
+
       const repos =
         await context.octokit.apps.listReposAccessibleToInstallation({
-          installation_id: context.payload.installation.id,
+          installation_id: installationId,
         });
       void repos.data.repositories.map(async (repo) => {
         const repoContext = { repo: repo.name, owner: repo.owner.login };
