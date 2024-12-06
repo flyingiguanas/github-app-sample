@@ -1,3 +1,4 @@
+import childProcess from 'node:child_process';
 import fs from 'node:fs/promises';
 import process from 'node:process';
 
@@ -9,30 +10,27 @@ export default class NpmAuditAdvisor {
 
   async run() {
     // Clone repository based on data from context.
-    await this.cloneRepo();
+    const path = await this.cloneRepo();
 
     // Move into repo
-    const cwd = process.cwd();
-    const repoName = this.context.payload.repository.name;
-    // TODO: Did I forget about error handling?
-    this.changeDir(`${cwd}/${repoName}`);
+    this.changeDir(path);
 
     // Update local repo
-    this.fetchGitUpdates();
-    this.checkoutRef();
+    await this.fetchGitUpdates();
+    await this.checkoutRef();
 
     // Install dependencies
-    this.installDependencies();
+    await this.installDependencies();
     // Run `npm audit`
-    this.auditDependencies();
+    await this.auditDependencies();
   }
 
   private async cloneRepo() {
     const installation_id = this.context.payload.installation?.id;
 
     if (!installation_id) {
-      this.context.log.info('No installation.id on context.payload found');
-      return;
+      this.context.log.error('No installation.id on context.payload found');
+      throw new Error('No installation.id on context.payload found');
     }
     const installationToken =
       await this.context.octokit.apps.createInstallationAccessToken({
@@ -42,12 +40,15 @@ export default class NpmAuditAdvisor {
     const accessToken = installationToken.data.token;
     const fullRepoName = this.context.payload.repository.full_name;
     const repoName = this.context.payload.repository.name;
+    const path = `${process.cwd()}/repos/${repoName}`;
 
-    if (!(await this.checkDirExists(`${process.cwd()}/${repoName}`))) {
+    if (!(await this.checkDirExists(path))) {
       const url = `https://x-access-token:${accessToken}@github.com/${fullRepoName}.git`;
-      const output = await simpleGit().clone(url);
+      const output = await simpleGit().clone(url, path);
       this.context.log.info({ output });
     }
+
+    return path;
   }
 
   private changeDir(dir: string) {
@@ -71,24 +72,61 @@ export default class NpmAuditAdvisor {
     return true;
   }
 
-  private fetchGitUpdates() {
+  private async fetchGitUpdates() {
     this.context.log.info('Running `git fetch`');
-    // TODO:
+
+    await this.runCmd('git fetch');
   }
 
-  private checkoutRef() {
+  private async checkoutRef() {
     const ref = this.context.payload.ref;
     this.context.log.info({ ref }, 'Checking out ref');
-    // TODO:
+
+    await this.runCmd(`git checkout ${ref}`);
   }
 
-  private installDependencies() {
+  private async installDependencies() {
     this.context.log.info('Installing dependencies');
-    // TODO:
+
+    await this.runCmd('npm install');
   }
 
-  private auditDependencies() {
+  private async auditDependencies() {
     this.context.log.info('Running `npm audit --omit=dev --json`');
-    // TODO:
+
+    await this.runCmd('npm audit --omit=dev --json');
+  }
+
+  private runCmd(cmd: string) {
+    const proc = childProcess.exec(cmd, (err, stdout, stderr) => {
+      this.context.log.info({ stdout, stderr, err });
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      proc.on('exit', (code, signal) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          this.context.log.warn(
+            { cmd, code, signal },
+            'Process exited with non-zero status code',
+          );
+          reject(
+            new Error(
+              `Process '${cmd}' exited with` +
+                (code !== null ? ` status code ${code.toString()}` : '') +
+                (signal !== null ? ` signal ${signal}` : ''),
+            ),
+          );
+        }
+      });
+
+      proc.on('error', (err) => {
+        reject(err);
+      });
+
+      proc.on('close', resolve);
+      proc.on('disconnect', resolve);
+    });
   }
 }
