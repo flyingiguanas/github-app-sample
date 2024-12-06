@@ -112,7 +112,12 @@ export default class NpmAuditAdvisor {
         err.code === 1
       ) {
         this.context.log.info({ err }, 'CommandError');
+
         // TODO: handle case where repo does have vulnerabilities
+        if (typeof err.stdout === 'string') {
+          const output = JSON.parse(err.stdout) as unknown;
+          this.context.log.info(output);
+        }
       }
     }
   }
