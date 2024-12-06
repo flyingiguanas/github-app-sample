@@ -94,9 +94,19 @@ export default class NpmAuditAdvisor {
   private async auditDependencies() {
     this.context.log.info('Running `npm audit --omit=dev --json`');
 
-    const { stdout, stderr } = await this.runCmd('npm audit --omit=dev --json');
-    this.context.log.info(stdout);
-    this.context.log.error(stderr);
+    try {
+      const { stdout, stderr } = await this.runCmd(
+        'npm audit --omit=dev --json',
+      );
+      this.context.log.info(stdout);
+      this.context.log.error(stderr);
+    } catch (err) {
+      this.context.log.info({ err, typeof: typeof err }, 'Error');
+      // if ("code" in err && err.code === 1) {
+      // `npm audit` fails with a code of 1 when there are vulnerabilities
+      // reported.
+      // }
+    }
   }
 
   private runCmd(cmd: string) {
