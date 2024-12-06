@@ -94,39 +94,22 @@ export default class NpmAuditAdvisor {
   private async auditDependencies() {
     this.context.log.info('Running `npm audit --omit=dev --json`');
 
-    await this.runCmd('npm audit --omit=dev --json');
+    const { stdout, stderr } = await this.runCmd('npm audit --omit=dev --json');
+    this.context.log.info(stdout);
+    this.context.log.error(stderr);
   }
 
   private runCmd(cmd: string) {
-    const proc = childProcess.exec(cmd, (err, stdout, stderr) => {
-      this.context.log.info({ stdout, stderr, err });
-    });
+    return new Promise<{ stdout: string; stderr: string }>(
+      (resolve, reject) => {
+        childProcess.exec(cmd, (err, stdout, stderr) => {
+          if (err) {
+            reject(err);
+          }
 
-    return new Promise<void>((resolve, reject) => {
-      proc.on('exit', (code, signal) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          this.context.log.warn(
-            { cmd, code, signal },
-            'Process exited with non-zero status code',
-          );
-          reject(
-            new Error(
-              `Process '${cmd}' exited with` +
-                (code !== null ? ` status code ${code.toString()}` : '') +
-                (signal !== null ? ` signal ${signal}` : ''),
-            ),
-          );
-        }
-      });
-
-      proc.on('error', (err) => {
-        reject(err);
-      });
-
-      proc.on('close', resolve);
-      proc.on('disconnect', resolve);
-    });
+          resolve({ stdout, stderr });
+        });
+      },
+    );
   }
 }
