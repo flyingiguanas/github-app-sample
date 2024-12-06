@@ -7,3 +7,5 @@ lib/
 
 # dependencies
 node_modules/
+
+repos/
