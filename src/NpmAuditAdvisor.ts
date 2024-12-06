@@ -4,6 +4,7 @@ import process from 'node:process';
 
 import { Context } from 'probot';
 import { simpleGit } from 'simple-git';
+import { CommandError } from './Errors';
 
 export default class NpmAuditAdvisor {
   constructor(private readonly context: Context<'push'>) {}
@@ -98,23 +99,33 @@ export default class NpmAuditAdvisor {
       const { stdout, stderr } = await this.runCmd(
         'npm audit --omit=dev --json',
       );
+      // TODO: Handle case where repo doesn't have vulnerabilities
       this.context.log.info(stdout);
       this.context.log.error(stderr);
     } catch (err) {
-      this.context.log.info({ err, typeof: typeof err }, 'Error');
-      // if ("code" in err && err.code === 1) {
-      // `npm audit` fails with a code of 1 when there are vulnerabilities
-      // reported.
-      // }
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'stdout' in err &&
+        'stderr' in err &&
+        'code' in err &&
+        err.code === 1
+      ) {
+        this.context.log.info({ err }, 'CommandError');
+        // TODO: handle case where repo does have vulnerabilities
+      }
     }
   }
 
   private runCmd(cmd: string) {
     return new Promise<{ stdout: string; stderr: string }>(
       (resolve, reject) => {
-        childProcess.exec(cmd, (err, stdout, stderr) => {
-          if (err) {
-            this.context.log.error({ err, stderr, stdout }, 'Process errored');
+        childProcess.exec(cmd, (error, stdout, stderr) => {
+          if (error) {
+            const err = CommandError.fromExecException(error, {
+              stdout,
+              stderr,
+            });
             reject(err);
           }
 
