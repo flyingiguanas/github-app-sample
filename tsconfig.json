@@ -12,12 +12,13 @@
     "strict": true,
     "declaration": true,
     "moduleResolution": "node",
-    "outDir": "./lib",
+    "outDir": "./dist",
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "emitDecoratorMetadata": true,
     "preserveConstEnums": true,
   },
+  "reflection": true,
   "include": [
     "src/**/*"
   ]
