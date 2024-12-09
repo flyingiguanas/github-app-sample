@@ -36,11 +36,10 @@
     "typescript": "^5.4.5"
   },
   "scripts": {
-    "prestart": "npm run build",
-    "start": "probot run ./lib/app.js",
+    "start": "probot run ./dist/App.js",
     "start:dev": "nodemon",
     "build": "npm run clean && tsc -p .",
-    "clean": "rm -rf lib",
+    "clean": "rm -rf dist",
     "lint": "eslint .",
     "lint:fix": "npm run lint -s -- --fix"
   },

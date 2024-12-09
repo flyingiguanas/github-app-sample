@@ -22,6 +22,7 @@ export default class NpmAuditAdvisor {
     // Update local repo
     await this.fetchGitUpdates();
     await this.checkoutRef();
+    await this.pullLatest();
 
     // Install dependencies
     await this.installDependencies();
@@ -86,7 +87,20 @@ export default class NpmAuditAdvisor {
     const ref = this.context.payload.pull_request.head.ref;
     this.context.log.info({ ref }, 'Checking out ref');
 
-    await this.runCmd(`git checkout ${ref}`);
+    try {
+      await this.runCmd(`git checkout ${ref}`);
+    } catch (err) {
+      if (
+        is<CommandError>(err) &&
+        !err.stderr.includes(`Already on '${ref}'`)
+      ) {
+        this.context.log.error({ err }, 'Error while checking out ref');
+      }
+    }
+  }
+
+  private async pullLatest() {
+    await this.runCmd('git pull');
   }
 
   private async installDependencies() {
@@ -106,14 +120,7 @@ export default class NpmAuditAdvisor {
       this.context.log.info(stdout);
       this.context.log.error(stderr);
     } catch (err) {
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        'stdout' in err &&
-        'stderr' in err &&
-        'code' in err &&
-        err.code === 1
-      ) {
+      if (is<CommandError>(err)) {
         this.context.log.info({ err }, 'CommandError');
 
         // TODO: handle case where repo does have vulnerabilities
