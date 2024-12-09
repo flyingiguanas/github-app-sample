@@ -35,3 +35,13 @@ interface FixAvailable {
   version: string;
   isSemVerMajor: boolean;
 }
+
+export interface AnalyzedVulnerabilities {
+  rootNodes: Vulnerability[];
+  leafNodes: Vulnerability[];
+  urls: Set<string>;
+}
+
+export interface Nsprc {
+  exceptions: string[];
+}

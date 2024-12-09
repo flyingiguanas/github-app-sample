@@ -7,7 +7,12 @@ import { simpleGit } from 'simple-git';
 import { assert, is } from '@deepkit/type';
 
 import { CommandError } from './Errors';
-import { Via, type Vulnerabilities } from './NpmAudit.types';
+import {
+  AnalyzedVulnerabilities,
+  Nsprc,
+  Via,
+  type Vulnerabilities,
+} from './NpmAudit.types';
 
 export default class NpmAuditAdvisor {
   constructor(private readonly context: Context<'pull_request.synchronize'>) {}
@@ -27,7 +32,14 @@ export default class NpmAuditAdvisor {
     // Install dependencies
     await this.installDependencies();
     // Run `npm audit`
-    await this.auditDependencies();
+    const vulnerabilities = await this.auditDependencies();
+
+    // TODO: Read in `.nsprc` file
+    const exceptions = await this.readNsprc();
+
+    if (vulnerabilities) {
+      await this.comment(vulnerabilities, exceptions);
+    }
   }
 
   private async cloneRepo() {
@@ -119,6 +131,7 @@ export default class NpmAuditAdvisor {
       // TODO: Handle case where repo doesn't have vulnerabilities
       this.context.log.info(stdout);
       this.context.log.error(stderr);
+      return null;
     } catch (err) {
       if (is<CommandError>(err)) {
         this.context.log.info({ err }, 'CommandError');
@@ -127,9 +140,11 @@ export default class NpmAuditAdvisor {
         if (typeof err.stdout === 'string') {
           const output = JSON.parse(err.stdout) as unknown;
           assert<Vulnerabilities>(output);
-          this.analyzeVulnerabilities(output);
+          return this.analyzeVulnerabilities(output);
         }
       }
+
+      return null;
     }
   }
 
@@ -156,7 +171,7 @@ export default class NpmAuditAdvisor {
 
     const rootNodes = []; // have no `via` entries -- these are the packages with vulnerabilities
     const leafNodes = []; // have no `effects` entries -- these are our direct dependencies
-    const urls = new Set(); // set of URLs for comparing against .nsprc
+    const urls = new Set<string>(); // set of URLs for comparing against .nsprc
 
     for (const id in output.vulnerabilities) {
       const vuln = output.vulnerabilities[id];
@@ -180,5 +195,76 @@ export default class NpmAuditAdvisor {
       { rootNodes, leafNodes, urls: Array.from(urls) },
       'Nodes',
     );
+
+    return {
+      rootNodes,
+      leafNodes,
+      urls,
+    };
+  }
+
+  private async comment(
+    vulnerabilities: AnalyzedVulnerabilities,
+    exceptions: string[],
+  ) {
+    const commentHeadline = `<!-- ${NpmAuditAdvisor.name} -->`;
+
+    const resolvableAdvisories = vulnerabilities.leafNodes
+      .concat(vulnerabilities.rootNodes)
+      .map((node) => `- ${node.name}`);
+    const exceptionsDiff = exceptions
+      .filter((exc) => !vulnerabilities.urls.has(exc))
+      .map((exc) => `- ${exc}`);
+
+    const body = `${commentHeadline}
+UPDATED AT: ${new Date().toISOString()}
+
+${resolvableAdvisories.length ? `# Potentially Resolvable Advisories\n${resolvableAdvisories.join('\n')}` : ''}
+
+${exceptionsDiff.length ? `# Exceptions that might not need to be in the \`.nsprc\` file\n${exceptionsDiff.join('\n')}` : ''}
+`;
+
+    const owner = this.context.payload.repository.owner.login;
+    const repo = this.context.payload.repository.name;
+    const issue_number = this.context.payload.pull_request.number;
+
+    const existingComments = await this.context.octokit.issues.listComments({
+      owner,
+      repo,
+      issue_number,
+    });
+    this.context.log.info(
+      { existingComments, issue_number, owner, repo },
+      'Existing comments',
+    );
+
+    const matchingComment = existingComments.data.find((comment) =>
+      comment.body?.startsWith(commentHeadline),
+    );
+    if (matchingComment) {
+      await this.context.octokit.issues.updateComment({
+        owner,
+        repo,
+        comment_id: matchingComment.id,
+        body,
+      });
+
+      return;
+    } else {
+      await this.context.octokit.issues.createComment({
+        owner,
+        repo,
+        body,
+        issue_number,
+      });
+    }
+  }
+
+  private async readNsprc() {
+    const nsprcFile = await fs.readFile('./.nsprc', { encoding: 'utf8' });
+    const nsprc = JSON.parse(nsprcFile) as unknown;
+    assert<Nsprc>(nsprc);
+
+    return nsprc.exceptions;
   }
 }
