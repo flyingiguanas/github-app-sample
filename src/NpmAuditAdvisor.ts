@@ -4,7 +4,10 @@ import process from 'node:process';
 
 import { Context } from 'probot';
 import { simpleGit } from 'simple-git';
+import { assert, is } from '@deepkit/type';
+
 import { CommandError } from './Errors';
+import { Via, type Vulnerabilities } from './NpmAudit.types';
 
 export default class NpmAuditAdvisor {
   constructor(private readonly context: Context<'pull_request.synchronize'>) {}
@@ -116,7 +119,8 @@ export default class NpmAuditAdvisor {
         // TODO: handle case where repo does have vulnerabilities
         if (typeof err.stdout === 'string') {
           const output = JSON.parse(err.stdout) as unknown;
-          this.context.log.info(output);
+          assert<Vulnerabilities>(output);
+          this.analyzeVulnerabilities(output);
         }
       }
     }
@@ -137,6 +141,37 @@ export default class NpmAuditAdvisor {
           resolve({ stdout, stderr });
         });
       },
+    );
+  }
+
+  private analyzeVulnerabilities(output: Vulnerabilities) {
+    this.context.log.info({ output }, 'Vulnerabilities');
+
+    const rootNodes = []; // have no `via` entries -- these are the packages with vulnerabilities
+    const leafNodes = []; // have no `effects` entries -- these are our direct dependencies
+    const urls = new Set(); // set of URLs for comparing against .nsprc
+
+    for (const id in output.vulnerabilities) {
+      const vuln = output.vulnerabilities[id];
+
+      for (const cause of vuln.via) {
+        if (is<Via>(cause)) {
+          urls.add(cause.url);
+        }
+      }
+
+      if (vuln.fixAvailable) {
+        if (vuln.effects.length === 0) {
+          leafNodes.push(vuln);
+        } else {
+          rootNodes.push(vuln);
+        }
+      }
+    }
+
+    this.context.log.info(
+      { rootNodes, leafNodes, urls: Array.from(urls) },
+      'Nodes',
     );
   }
 }

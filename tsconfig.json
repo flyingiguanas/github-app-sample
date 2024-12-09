@@ -18,6 +18,7 @@
     "emitDecoratorMetadata": true,
     "preserveConstEnums": true,
   },
+  "reflection": true,
   "include": [
     "src/**/*"
   ]
