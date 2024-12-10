@@ -1,7 +1,7 @@
 import { Probot } from 'probot';
-import { IGithubConfig } from './LabelMatcher';
-import { CheckStatus, StatusChecksManager } from './StatusChecksManager';
-import NpmAuditAdvisor from './NpmAuditAdvisor';
+import { IGithubConfig } from './LabelMatcher.js';
+import { CheckStatus, StatusChecksManager } from './StatusChecksManager.js';
+import NpmAuditAdvisor from './NpmAuditAdvisor.js';
 
 export default (app: Probot) => {
   app.on(

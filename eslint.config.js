@@ -1,6 +1,6 @@
-const pagerConfig = require("@pager/eslint-config-ts");
+import pagerConfig from "@pager/eslint-config-ts";
 
-module.exports = [
+export default [
   ...pagerConfig.configs.recommended,
   {
     ignores: [

@@ -6,13 +6,13 @@ import { Context } from 'probot';
 import { simpleGit } from 'simple-git';
 import { assert, is } from '@deepkit/type';
 
-import { CommandError } from './Errors';
+import { CommandError } from './Errors.js';
 import {
   AnalyzedVulnerabilities,
   Nsprc,
   Via,
   type Vulnerabilities,
-} from './NpmAudit.types';
+} from './NpmAudit.types.js';
 
 export default class NpmAuditAdvisor {
   constructor(private readonly context: Context<'pull_request.synchronize'>) {}
