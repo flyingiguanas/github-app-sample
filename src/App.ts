@@ -14,6 +14,8 @@ export default (app: Probot) => {
       'pull_request.labeled',
     ],
     async (context) => {
+      const installationOctokit = await createInstallationOctokit(context);
+
       context.log.info(`handling ${context.name} event`);
 
       const installationId = context.payload.installation?.id;
@@ -23,14 +25,14 @@ export default (app: Probot) => {
       }
 
       const repos =
-        await context.octokit.apps.listReposAccessibleToInstallation({
+        await installationOctokit.apps.listReposAccessibleToInstallation({
           installation_id: installationId,
         });
       void repos.data.repositories.map(async (repo) => {
         const repoContext = { repo: repo.name, owner: repo.owner.login };
 
         const labels =
-          await context.octokit.issues.listLabelsForRepo(repoContext);
+          await installationOctokit.issues.listLabelsForRepo(repoContext);
         const labelNames = labels.data.map((label) => label.name);
 
         const prodLabel = {
@@ -39,9 +41,9 @@ export default (app: Probot) => {
           ...repoContext,
         };
         if (!labelNames.includes('production')) {
-          await context.octokit.issues.createLabel(prodLabel);
+          await installationOctokit.issues.createLabel(prodLabel);
         } else {
-          await context.octokit.issues.updateLabel(prodLabel);
+          await installationOctokit.issues.updateLabel(prodLabel);
         }
 
         const nonProdLabel = {
@@ -50,9 +52,9 @@ export default (app: Probot) => {
           ...repoContext,
         };
         if (!labelNames.includes('non-production')) {
-          await context.octokit.issues.createLabel(nonProdLabel);
+          await installationOctokit.issues.createLabel(nonProdLabel);
         } else {
-          await context.octokit.issues.updateLabel(nonProdLabel);
+          await installationOctokit.issues.updateLabel(nonProdLabel);
         }
       });
     },
@@ -65,6 +67,8 @@ export default (app: Probot) => {
       'pull_request.ready_for_review',
     ],
     async (context) => {
+      const installationOctokit = await createInstallationOctokit(context);
+
       context.log.info(`handling ${context.name} event`);
 
       const labels = context.payload.pull_request.labels.map(
@@ -77,7 +81,7 @@ export default (app: Probot) => {
         const data: IGithubConfig | null =
           await context.config<IGithubConfig>('labels.yml');
         const defaultLabel = data?.default || 'production';
-        await context.octokit.issues.addLabels(
+        await installationOctokit.issues.addLabels(
           context.issue({ labels: [defaultLabel] }),
         );
       }
@@ -96,9 +100,11 @@ export default (app: Probot) => {
 
     const targetStatus = valid ? CheckStatus.SUCCESS : CheckStatus.FAILED;
 
+    const installationOctokit = await createInstallationOctokit(context);
     const statusChecksManager = new StatusChecksManager(
       context,
       'pager_soc2_labels',
+      installationOctokit,
     );
     const status = await statusChecksManager.getCheck();
     if (targetStatus === status) {

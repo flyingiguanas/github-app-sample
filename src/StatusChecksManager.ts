@@ -10,9 +10,10 @@ export class StatusChecksManager {
   constructor(
     private readonly context: Context<'pull_request'>,
     private readonly name: string,
+    private readonly octokit: ProbotOctokit,
   ) {}
   public async getCheck(): Promise<CheckStatus> {
-    const response = await this.context.octokit.checks.listForRef(
+    const response = await this.octokit.checks.listForRef(
       this.context.repo({
         ref: this.context.payload.pull_request.head.sha,
         check_name: this.name,
@@ -50,7 +51,7 @@ export class StatusChecksManager {
           'Please make sure to have a production or non-production label!',
       },
     };
-    return this.context.octokit.checks.create(this.context.repo(checkOptions));
+    return this.octokit.checks.create(this.context.repo(checkOptions));
   }
   public async setSuccess(): Promise<
     ReturnType<ProbotOctokit['checks']['create']>
@@ -71,8 +72,6 @@ export class StatusChecksManager {
         summary: 'Labels looking good, good job!',
       },
     };
-    return await this.context.octokit.checks.create(
-      this.context.repo(checkOptions),
-    );
+    return await this.octokit.checks.create(this.context.repo(checkOptions));
   }
 }
