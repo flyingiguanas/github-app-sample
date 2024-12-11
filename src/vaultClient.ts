@@ -2,7 +2,7 @@ import Vault from 'node-vault';
 import * as gcpMetadata from 'gcp-metadata';
 import { IAMCredentialsClient } from '@google-cloud/iam-credentials';
 
-interface VaultConfig {
+export interface VaultConfig {
   endpoint: string;
   serviceAccountEmail?: string;
   role?: string;
