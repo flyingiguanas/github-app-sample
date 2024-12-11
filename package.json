@@ -21,6 +21,7 @@
     "@deepkit/type": "^1.0.1-alpha.155",
     "@google-cloud/kms": "^4.5.0",
     "@octokit/auth-callback": "^5.0.1",
+    "@octokit/core": "^5.2.0",
     "base64url": "^3.0.1",
     "dotenv": "^16.4.5",
     "probot": "^13.2.0",

@@ -1,5 +1,4 @@
-import { ProbotOctokit, run } from 'probot';
-import { createCallbackAuth } from '@octokit/auth-callback';
+import { Probot, Server } from 'probot';
 import dotenv from 'dotenv';
 import { KeyManagementServiceClient } from '@google-cloud/kms';
 
@@ -15,13 +14,25 @@ async function bootstrap() {
     process.env.GITHUB_APP_CLIENT_ID,
   );
 
-  await run(app, {
-    Octokit: ProbotOctokit.defaults({
-      auth: {
-        callback,
-      },
-      authStrategy: createCallbackAuth,
+  const token = await callback();
+
+  const server = new Server({
+    webhookProxy: process.env.WEBHOOK_PROXY_URL,
+    Probot: Probot.defaults({
+      githubToken: token,
+      appId: process.env.APP_ID,
+      secret: process.env.WEBHOOK_SECRET,
+      // Octokit: ProbotOctokit.defaults({
+      //   auth: {
+      //     callback,
+      //   },
+      //   authStrategy: () => createCallbackAuth({ callback }),
+      // }),
     }),
   });
+
+  await server.load(app);
+
+  await server.start();
 }
 void bootstrap();

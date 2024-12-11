@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-import { assert } from '@deepkit/type';
+import { assert, is } from '@deepkit/type';
 import base64url from 'base64url';
 import { KeyManagementServiceClient } from '@google-cloud/kms';
 
@@ -39,9 +39,19 @@ export function createTokenSigner(
       },
       name: keyName,
     });
+    if (!response.signature) {
+      return '';
+    }
 
-    assert<string>(response.signature);
+    let signature: string;
+    if (is<Uint8Array>(response.signature)) {
+      // @ts-expect-error The type definition of this method doesn't expect an
+      // argument, but this does work.
+      signature = response.signature.toString('base64');
+    } else {
+      signature = base64url.default(response.signature);
+    }
 
-    return body + '.' + base64url.default(response.signature);
+    return body + '.' + signature;
   };
 }
