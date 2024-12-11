@@ -1,0 +1,57 @@
+steps:
+  - id: node-buildtime-pull
+    name: "us-east1-docker.pkg.dev/$PROJECT_ID/cloudbuilders/node-buildtime:20.9-latest"
+    entrypoint: "true"
+
+  - id: docker-build
+    name: "us-east1-docker.pkg.dev/$PROJECT_ID/cloudbuilders/docker:latest"
+    secretEnv: ["NPM_TOKEN", "GITHUB_TOKEN"]
+    env:
+      - "BRANCH_NAME=$BRANCH_NAME"
+      - "BUILD_ID=$BUILD_ID"
+      - "PROJECT_ID=$PROJECT_ID"
+      - "REPO_NAME=$REPO_NAME"
+      - "REVISION_ID=$REVISION_ID"
+      - "SHORT_SHA=$SHORT_SHA"
+      - "TAG_NAME=$TAG_NAME"
+      - "_PR_NUMBER=$_PR_NUMBER"
+      - 'ENV_PROMOTION=true'
+    waitFor: ["-"]
+
+  - id: lint-yaml
+    name: "us-east1-docker.pkg.dev/$PROJECT_ID/cloudbuilders/node-buildtime:20.9-latest"
+    entrypoint: "yamllint"
+    args: ["-d", "relaxed", "."]
+    waitFor: ["node-buildtime-pull"]
+
+  - id: lint-docker
+    name: "us-east1-docker.pkg.dev/$PROJECT_ID/cloudbuilders/node-buildtime:20.9-latest"
+    entrypoint: "hadolint"
+    args: ["Dockerfile"]
+    waitFor: ["node-buildtime-pull"]
+
+  - id: lint
+    name: "us-east1-docker.pkg.dev/$PROJECT_ID/cloudbuilders/node-buildtime:20.9-latest"
+    entrypoint: "npm"
+    args: ["run", "lint"]
+    waitFor: ["install"]
+
+images:
+  - "us-east1-docker.pkg.dev/${PROJECT_ID}/pagerinc/${REPO_NAME}"
+
+timeout: 600s
+logsBucket: "gs://$PROJECT_ID-primary-cloudbuild-logs"
+tags:
+  - "backend"
+  - "docker"
+  - "nodejs"
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/145393225073/secrets/cloudbuild-spinnaker-github-token/versions/latest
+      env: GITHUB_TOKEN
+    - versionName: 'projects/145393225073/secrets/npm-token-readonly/versions/latest'
+      env: 'NPM_TOKEN'
+
+options:
+  machineType: E2_HIGHCPU_32
