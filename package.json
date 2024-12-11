@@ -1,8 +1,9 @@
 {
   "name": "github-app-sample",
   "description": "A github app",
-  "main": "./lib/app.js",
+  "exports": "./src/index.js",
   "typings": "./lib/app",
+  "type": "module",
   "keywords": [
     "probot",
     "github",
@@ -17,11 +18,17 @@
   },
   "homepage": "https://github.com/flyingiguanas/github-app-sample",
   "dependencies": {
+    "@deepkit/type": "^1.0.1-alpha.155",
+    "@google-cloud/kms": "^4.5.0",
+    "@octokit/auth-callback": "^5.0.1",
+    "@octokit/core": "^5.2.0",
+    "base64url": "^3.0.1",
     "dotenv": "^16.4.5",
     "probot": "^13.2.0",
     "simple-git": "^3.27.0"
   },
   "devDependencies": {
+    "@deepkit/type-compiler": "^1.0.1-alpha.155",
     "@octokit/webhooks": "^12.2.0",
     "@pager/eslint-config-ts": "^2.8.0",
     "@types/handlebars": "^4.1.0",
@@ -29,14 +36,15 @@
     "@types/node": "^14.0.0",
     "eslint": "^9.16.0",
     "husky": "^3.0.0",
+    "nodemon": "^3.1.7",
     "smee-client": "^2.0.1",
     "typescript": "^5.4.5"
   },
   "scripts": {
-    "prestart": "npm run build",
-    "start": "probot run ./lib/app.js",
+    "start": "node ./dist/index",
+    "start:dev": "nodemon",
     "build": "npm run clean && tsc -p .",
-    "clean": "rm -rf lib",
+    "clean": "rm -rf dist",
     "lint": "eslint .",
     "lint:fix": "npm run lint -s -- --fix"
   },

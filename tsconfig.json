@@ -2,7 +2,7 @@
   "extends": "@pager/eslint-config-ts/tsconfig.json",
   "compilerOptions": {
     "target": "ES5",
-    "module": "commonjs",
+    "module": "node16",
     "esModuleInterop": true,
     "lib": ["es2022"],
     "noImplicitAny": true,
@@ -10,14 +10,15 @@
     "noUnusedLocals": true,
     "strictNullChecks": true,
     "strict": true,
-    "declaration": true,
-    "moduleResolution": "node",
-    "outDir": "./lib",
+    "declaration": false,
+    "moduleResolution": "node16",
+    "outDir": "./dist",
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "emitDecoratorMetadata": true,
     "preserveConstEnums": true,
   },
+  "reflection": true,
   "include": [
     "src/**/*"
   ]
