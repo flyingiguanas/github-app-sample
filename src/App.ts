@@ -2,6 +2,7 @@ import { Probot } from 'probot';
 import { IGithubConfig } from './LabelMatcher.js';
 import { CheckStatus, StatusChecksManager } from './StatusChecksManager.js';
 import NpmAuditAdvisor from './NpmAuditAdvisor.js';
+import { createInstallationOctokit, getInstallationToken } from './utils.js';
 
 export default (app: Probot) => {
   app.on(
@@ -113,10 +114,20 @@ export default (app: Probot) => {
     }
   });
 
-  app.on('pull_request.synchronize', (context) => {
+  app.on('pull_request.synchronize', async (context) => {
     context.log.info(`handling ${context.name} event`);
 
-    const advisor = new NpmAuditAdvisor(context);
+    const installationToken = await getInstallationToken(context);
+    const installationOctokit = await createInstallationOctokit(
+      context,
+      installationToken,
+    );
+
+    const advisor = new NpmAuditAdvisor(
+      context,
+      installationOctokit,
+      installationToken,
+    );
     void advisor.run();
   });
 };

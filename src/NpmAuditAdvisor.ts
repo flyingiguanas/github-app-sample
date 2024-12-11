@@ -2,7 +2,7 @@ import childProcess from 'node:child_process';
 import fs from 'node:fs/promises';
 import process from 'node:process';
 
-import { Context } from 'probot';
+import { Context, ProbotOctokit } from 'probot';
 import { simpleGit } from 'simple-git';
 import { assert, is } from '@deepkit/type';
 
@@ -15,7 +15,11 @@ import {
 } from './NpmAudit.types.js';
 
 export default class NpmAuditAdvisor {
-  constructor(private readonly context: Context<'pull_request.synchronize'>) {}
+  constructor(
+    private readonly context: Context<'pull_request.synchronize'>,
+    private readonly installationOctokit: ProbotOctokit,
+    private readonly installationToken: string,
+  ) {}
 
   async run() {
     // Clone repository based on data from context.
@@ -43,18 +47,7 @@ export default class NpmAuditAdvisor {
   }
 
   private async cloneRepo() {
-    const installation_id = this.context.payload.installation?.id;
-
-    if (!installation_id) {
-      this.context.log.error('No installation.id on context.payload found');
-      throw new Error('No installation.id on context.payload found');
-    }
-    const installationToken =
-      await this.context.octokit.apps.createInstallationAccessToken({
-        installation_id,
-      });
-
-    const accessToken = installationToken.data.token;
+    const accessToken = this.installationToken;
     const fullRepoName = this.context.payload.repository.full_name;
     const repoName = this.context.payload.repository.name;
     const path = `${process.cwd()}/repos/${repoName}`;
@@ -228,11 +221,13 @@ ${exceptionsDiff.length ? `# Exceptions that might not need to be in the \`.nspr
     const repo = this.context.payload.repository.name;
     const issue_number = this.context.payload.pull_request.number;
 
-    const existingComments = await this.context.octokit.issues.listComments({
-      owner,
-      repo,
-      issue_number,
-    });
+    const existingComments = await this.installationOctokit.issues.listComments(
+      {
+        owner,
+        repo,
+        issue_number,
+      },
+    );
     this.context.log.info(
       { existingComments, issue_number, owner, repo },
       'Existing comments',
@@ -242,7 +237,7 @@ ${exceptionsDiff.length ? `# Exceptions that might not need to be in the \`.nspr
       comment.body?.startsWith(commentHeadline),
     );
     if (matchingComment) {
-      await this.context.octokit.issues.updateComment({
+      await this.installationOctokit.issues.updateComment({
         owner,
         repo,
         comment_id: matchingComment.id,
@@ -251,7 +246,7 @@ ${exceptionsDiff.length ? `# Exceptions that might not need to be in the \`.nspr
 
       return;
     } else {
-      await this.context.octokit.issues.createComment({
+      await this.installationOctokit.issues.createComment({
         owner,
         repo,
         body,

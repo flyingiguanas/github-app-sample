@@ -14,20 +14,14 @@ async function bootstrap() {
     process.env.GITHUB_APP_CLIENT_ID,
   );
 
-  const token = await callback();
+  const appToken = await callback();
 
   const server = new Server({
     webhookProxy: process.env.WEBHOOK_PROXY_URL,
     Probot: Probot.defaults({
-      githubToken: token,
+      githubToken: appToken,
       appId: process.env.APP_ID,
       secret: process.env.WEBHOOK_SECRET,
-      // Octokit: ProbotOctokit.defaults({
-      //   auth: {
-      //     callback,
-      //   },
-      //   authStrategy: () => createCallbackAuth({ callback }),
-      // }),
     }),
   });
 

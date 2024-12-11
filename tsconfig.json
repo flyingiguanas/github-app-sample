@@ -10,7 +10,7 @@
     "noUnusedLocals": true,
     "strictNullChecks": true,
     "strict": true,
-    "declaration": true,
+    "declaration": false,
     "moduleResolution": "node16",
     "outDir": "./dist",
     "experimentalDecorators": true,
