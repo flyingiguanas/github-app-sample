@@ -4,6 +4,10 @@ import { CheckStatus, StatusChecksManager } from './StatusChecksManager.js';
 import NpmAuditAdvisor from './NpmAuditAdvisor.js';
 import { createInstallationOctokit, getInstallationToken } from './utils.js';
 
+export interface AppConfig {
+  webhookSecret?: string;
+}
+
 export default (app: Probot) => {
   app.on(
     [
